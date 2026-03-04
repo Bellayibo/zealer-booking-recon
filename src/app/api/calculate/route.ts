@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       return {
         ...booking,
         listingCode: listing.code,
+        managementFeeRate: listing.managementFeeRate,
         status: "ok" as const,
         error: null,
         calculation,

@@ -9,6 +9,7 @@ interface BookingResult {
   grossAmount: number;
   payoutAmount: number;
   payoutDate: string;
+  managementFeeRate?: number;
   status: "ok" | "no_config";
   calculation: {
     bookingCharge: number;
@@ -32,11 +33,12 @@ export async function POST(request: Request) {
         "Date of Stay": `${r.checkIn} - ${r.checkOut}`,
         Amount: r.grossAmount,
         "Booking Charge": r.calculation!.bookingCharge,
-        Percentage: r.calculation!.percentage,
+        "Platform Commission": r.calculation!.percentage,
         "Night Fee": r.calculation!.nightFee,
         "Platform Charge (Night)": r.calculation!.nightFee * r.calculation!.percentage,
         "Cleaning Fee": r.grossAmount - r.calculation!.nightFee,
         "Platform Charge (Cleaning)": (r.grossAmount - r.calculation!.nightFee) * r.calculation!.percentage,
+        "Mgmt Fee Rate": r.managementFeeRate != null ? `${(r.managementFeeRate * 100).toFixed(0)}%` : "-",
         "Management Fee": r.calculation!.managementFee,
         Payable: r.calculation!.payable,
         "Date of Payout": r.payoutDate,
