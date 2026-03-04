@@ -92,7 +92,7 @@ export default function ReconPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">OTA 渠道对账</h1>
+        <h1 className="text-2xl font-bold">Zealer Booking Reconciliation</h1>
         <span className="text-sm text-gray-500">Booking.com Payout Reconciliation</span>
       </div>
 

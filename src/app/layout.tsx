@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Zealer Booking Recon",
+  title: "Zealer Booking Reconciliation",
   description: "Booking.com payout reconciliation tool",
 };
 
