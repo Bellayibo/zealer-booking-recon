@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 
 interface StatementBooking {
   checkIn: string;
@@ -62,7 +63,7 @@ function StatementCard({ s, onOwnerNameChange }: { s: StatementData; onOwnerName
         <div style={{ fontFamily: "Alice, Georgia, serif", fontSize: "22pt", fontWeight: 700, color: "#17375E" }}>
           MONTHLY OWNER STATEMENT
         </div>
-        <img src="/logo.jpg" alt="Zealer Holiday" style={{ height: "48px", objectFit: "contain" }} />
+        <Image src="/logo.jpg" alt="Zealer Holiday" width={160} height={48} style={{ objectFit: "contain" }} />
       </div>
 
       {/* Header info table */}
@@ -182,13 +183,12 @@ function saveHistory(records: StatementData[]) {
 }
 
 export default function OwnerStatementPage() {
-  const [statements, setStatements] = useState<StatementData[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-
-  useEffect(() => {
+  const [statements, setStatements] = useState<StatementData[]>(() => {
+    if (typeof window === "undefined") return [];
     const raw = sessionStorage.getItem("ownerStatements");
-    if (raw) setStatements(JSON.parse(raw));
-  }, []);
+    return raw ? JSON.parse(raw) : [];
+  });
+  const [selectedIdx, setSelectedIdx] = useState(0);
 
   const markStatus = (status: "exported" | "paid") => {
     const s = statements[selectedIdx];
@@ -206,7 +206,7 @@ export default function OwnerStatementPage() {
   if (statements.length === 0) {
     return (
       <div style={{ padding: "40px", textAlign: "center", color: "#888" }}>
-        <p>No statement data. Please click "Generate Owner Statements" from the main page.</p>
+        <p>No statement data. Please click &quot;Generate Owner Statements&quot; from the main page.</p>
       </div>
     );
   }
@@ -233,7 +233,7 @@ export default function OwnerStatementPage() {
 
           {/* Logo area */}
           <div style={{ padding: "20px 16px", borderBottom: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", gap: "10px" }}>
-            <img src="/logozealerred.jpg" alt="Zealer" style={{ width: "44px", height: "44px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+            <Image src="/logozealerred.jpg" alt="Zealer" width={44} height={44} style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
             <div>
               <div style={{ fontFamily: "Alice, Georgia, serif", fontSize: "15px", fontWeight: 700, color: "#fff", letterSpacing: "0.5px" }}>zealer.</div>
               <div style={{ fontSize: "10px", color: "#7ab3d4", letterSpacing: "1px", textTransform: "uppercase" }}>holiday</div>

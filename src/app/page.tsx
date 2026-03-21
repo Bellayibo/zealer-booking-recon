@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
-import { LISTINGS } from "@/config/listings";
+import { useState } from "react";
 
 // ─── Statement record (persisted to localStorage) ────────────────────────────
 
@@ -1232,11 +1231,9 @@ function GuestyTab() {
 // ─── Statements history tab ───────────────────────────────────────────────────
 
 function StatementsTab() {
-  const [records, setRecords] = useState<StatementRecord[]>([]);
+  const [records, setRecords] = useState<StatementRecord[]>(() => loadStatementHistory());
   const [filterStatus, setFilterStatus] = useState<"all" | "draft" | "exported" | "paid">("all");
   const [filterMonth, setFilterMonth] = useState("");
-
-  useEffect(() => { setRecords(loadStatementHistory()); }, []);
 
   const updateRecord = (id: string, patch: Partial<StatementRecord>) => {
     const updated = records.map((r) => r.id === id ? { ...r, ...patch } : r);
