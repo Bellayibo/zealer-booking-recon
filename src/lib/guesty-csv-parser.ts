@@ -1,25 +1,35 @@
 export interface GuestyBooking {
   confirmationCode: string;
+  creationDate: string; // YYYY-MM-DD
   checkIn: string;   // YYYY-MM-DD
   checkOut: string;  // YYYY-MM-DD
   propertyName: string;
+  totalGuestPayout: number;  // TOTAL GUEST PAYOUT = gross amount paid by guest
+  totalPayout: number;       // TOTAL PAYOUT — may differ from totalGuestPayout; flag for review
+  totalFees: number;         // TOTAL FEES = cleaning fee
   netIncome: number;
   commission: number;
   ownerRevenue: number;
   channelCommission: number;
+  processingFees: number;
   commissionFormula: string;
-  totalFees: number;
 }
 
 export type ParseGuestyCsvResult =
   | { success: true; bookings: GuestyBooking[] }
   | { success: false; error: string };
 
-const REQUIRED_COLS = ["CHECK-IN", "CHECK-OUT", "LISTING", "NET INCOME", "COMMISSION", "OWNER REVENUE"];
+const REQUIRED_COLS = ["CHECK-IN DATE", "CHECK-OUT DATE", "LISTING", "NET INCOME", "COMMISSION", "OWNER REVENUE"];
 
 function parseDate(raw: string): string {
   // "2026-02-06 03:00 PM" → "2026-02-06"
-  return raw.trim().split(" ")[0];
+  // "2026/2/6" → "2026-02-06"
+  const s = raw.trim().split(" ")[0];
+  if (s.includes("/")) {
+    const [y, m, d] = s.split("/");
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return s;
 }
 
 function num(raw: string): number {
@@ -27,7 +37,7 @@ function num(raw: string): number {
   return isNaN(n) ? 0 : n;
 }
 
-export function parseGuestyCsv(csv: string, period: string): ParseGuestyCsvResult {
+export function parseGuestyCsv(csv: string, period = ""): ParseGuestyCsvResult {
   const lines = csv.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return { success: false, error: "CSV 文件为空" };
 
@@ -56,25 +66,32 @@ export function parseGuestyCsv(csv: string, period: string): ParseGuestyCsvResul
 
     const get = (col: string) => (cells[idx(col)] ?? "").replace(/^"|"$/g, "").trim();
 
-    const checkOut = parseDate(get("CHECK-OUT"));
-    // Filter: checkout in specified period (YYYY-MM)
-    if (!checkOut.startsWith(period)) continue;
+    const checkOut = parseDate(get("CHECK-OUT DATE"));
+    // Filter by checkout period only if period is specified
+    if (period && !checkOut.startsWith(period)) continue;
 
     const ownerRevenue = num(get("OWNER REVENUE"));
-    // Skip zero-revenue rows (cancellations / no-shows)
-    if (ownerRevenue === 0) continue;
+    const totalGuestPayout = num(get("TOTAL GUEST PAYOUT")) || num(get("TOTAL PAID"));
+    const cancellationFee = num(get("CANCELLATION FEE"));
+    // Skip true no-shows: no payment received at all
+    if (ownerRevenue === 0 && totalGuestPayout === 0 && cancellationFee === 0) continue;
 
     bookings.push({
       confirmationCode: get("CONFIRMATION CODE"),
-      checkIn: parseDate(get("CHECK-IN")),
+      creationDate: parseDate(get("CREATION DATE")),
+      checkIn: parseDate(get("CHECK-IN DATE")),
       checkOut,
       propertyName: get("LISTING"),
+      // HomeAway (HA-) bookings have empty TOTAL GUEST PAYOUT — fall back to TOTAL PAID then TOTAL PAYOUT
+      totalGuestPayout: totalGuestPayout || num(get("TOTAL PAYOUT")),
+      totalPayout: num(get("TOTAL PAYOUT")),
+      totalFees: num(get("TOTAL FEES")),
       netIncome: num(get("NET INCOME")),
       commission: num(get("COMMISSION")),
       ownerRevenue,
       channelCommission: num(get("CHANNEL COMMISSION INCL TAX")),
+      processingFees: num(get("PROCESSING FEES")),
       commissionFormula: get("COMMISSION FORMULA"),
-      totalFees: num(get("TOTAL FEES")),
     });
   }
 

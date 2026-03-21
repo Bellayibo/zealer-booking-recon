@@ -19,6 +19,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `CSV 解析失败: ${parsed.error}` }, { status: 400 });
     }
 
+    const overridesRaw = formData.get("cleaningFeeOverrides") as string | null;
+    const cleaningFeeOverrides: Record<string, number> = overridesRaw ? JSON.parse(overridesRaw) : {};
+
     const results = parsed.bookings.map((booking) => {
       const listing = findListingByPropertyName(booking.propertyName);
 
@@ -32,13 +35,15 @@ export async function POST(request: Request) {
         };
       }
 
+      const cleaningFeeAud = cleaningFeeOverrides[listing.code] ?? listing.cleaningFee;
+
       const calculation = calculateBookingPayable({
         grossAmount: booking.grossAmount,
         commission: booking.commission,
         paymentFee: booking.paymentFee,
         vat: booking.vat,
         config: {
-          cleaningFeeAud: listing.cleaningFee,
+          cleaningFeeAud,
           cleaningFeeTo: listing.cleaningFeeTo,
           managementFeeRate: listing.managementFeeRate,
         },

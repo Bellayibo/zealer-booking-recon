@@ -1,5 +1,6 @@
 export interface BookingComRow {
   referenceNumber: string;
+  bookingDate: string;
   checkIn: string;
   checkOut: string;
   propertyId: string;
@@ -32,6 +33,7 @@ export function parseBookingComCsv(csvContent: string): ParseResult {
     const idx = (name: string) => headers.indexOf(name.toLowerCase());
     const iType       = idx("type/transaction type");
     const iRef        = idx("reference number");
+    const iIssueDate  = idx("issue date");
     const iCheckIn    = idx("check-in date");
     const iCheckOut   = idx("check-out date");
     const iStatus     = idx("reservation status");
@@ -59,6 +61,7 @@ export function parseBookingComCsv(csvContent: string): ParseResult {
 
       bookings.push({
         referenceNumber: (cols[iRef] ?? "").trim(),
+        bookingDate:     (cols[iIssueDate] ?? "").trim(),
         checkIn:         (cols[iCheckIn] ?? "").trim(),
         checkOut:        (cols[iCheckOut] ?? "").trim(),
         propertyId:      (cols[iPropId] ?? "").trim(),
