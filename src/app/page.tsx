@@ -656,7 +656,7 @@ function BookingTab() {
                   // Date Issued = payment month (no specific day)
                   const dateIssued = new Date(pmYear, pmMonth - 1, 1).toLocaleDateString("en-AU", { month: "long", year: "numeric" });
                   return {
-                    id: `${Date.now()}-${listingCode}-${pmKey}`,
+                    id: `${crypto.randomUUID()}-${listingCode}-${pmKey}`,
                     listingCode,
                     address: LISTING_META[listingCode]?.address ?? listingCode,
                     ownerName: LISTING_META[listingCode]?.ownerName ?? "",
@@ -739,7 +739,7 @@ function GuestyTab() {
   const [exporting, setExporting] = useState(false);
 
   const addManualRow = () => setManualRows((prev) => [...prev, {
-    id: Date.now(),
+    id: Math.random(),
     listingCode: "", channel: "", checkIn: "", checkOut: "",
     amount: "", platformPct: "", cleaningFee: "", cleaningFeeTo: "owner", hostMgmtRate: "20",
   }]);
@@ -857,7 +857,7 @@ function GuestyTab() {
     const [pmYear, pmMonth] = pmKey.split("-").map(Number);
     const paymentPeriodLabel = new Date(pmYear, pmMonth - 1, 1).toLocaleDateString("en-AU", { month: "long", year: "numeric" });
     const record: StatementRecord = {
-      id: `${Date.now()}-${r.listingCode}-${pmKey}`,
+      id: `${crypto.randomUUID()}-${r.listingCode}-${pmKey}`,
       listingCode: r.listingCode,
       address: LISTING_META[r.listingCode]?.address ?? r.listingCode,
       ownerName: LISTING_META[r.listingCode]?.ownerName ?? "",
