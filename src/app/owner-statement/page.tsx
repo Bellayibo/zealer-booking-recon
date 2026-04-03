@@ -32,28 +32,72 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function StatementCard({ s, onOwnerNameChange }: { s: StatementData; onOwnerNameChange?: (name: string) => void }) {
-  const gross = s.bookings.reduce((a, b) => a + b.grossAmount, 0);
-  const platform = s.bookings.reduce((a, b) => a + b.bookingCharge, 0);
-  const mgmt = s.bookings.reduce((a, b) => a + b.managementFee, 0);
-  const payable = s.bookings.reduce((a, b) => a + b.payable, 0);
+function EditableAmount({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [text, setText] = useState(value.toFixed(2));
+  const [focused, setFocused] = useState(false);
+  // Sync from parent when not focused
+  const displayVal = focused ? text : value.toFixed(2);
+  return (
+    <input
+      value={displayVal}
+      onFocus={() => { setText(value.toFixed(2)); setFocused(true); }}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { setFocused(false); const n = parseFloat(text); if (!isNaN(n)) onChange(n); }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      className="no-print-border"
+      style={{ width: "100%", textAlign: "right", border: "none", padding: "0", fontSize: "10pt", fontFamily: "Montserrat, sans-serif", color: "#17375E", outline: "none", background: "transparent" }}
+    />
+  );
+}
+
+function EditableText({ value, onChange, placeholder, style }: { value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties }) {
+  return (
+    <input
+      className="no-print-border owner-name-input"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder ?? ""}
+      style={{ border: value ? "none" : "1px dashed #aaa", background: "transparent", color: "#17375E", fontSize: "10pt", fontFamily: "Montserrat, sans-serif", width: "100%", outline: "none", padding: 0, ...style }}
+    />
+  );
+}
+
+function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?: (patch: Partial<StatementData>) => void }) {
+  const calcGross = s.bookings.reduce((a, b) => a + b.grossAmount, 0);
+  const calcPlatform = s.bookings.reduce((a, b) => a + b.bookingCharge, 0);
+  const calcMgmt = s.bookings.reduce((a, b) => a + b.managementFee, 0);
+  const calcPayable = s.bookings.reduce((a, b) => a + b.payable, 0);
+
+  const [overrides, setOverrides] = useState<Record<string, number>>({});
+  const [bookingOverrides, setBookingOverrides] = useState<Record<string, string>>({});
+  const [expenseRows, setExpenseRows] = useState<{ date: string; item: string; category: string; amount: string }[]>([]);
+  const ov = (key: string, fallback: number) => overrides[key] ?? fallback;
+  const setOv = (key: string, v: number) => setOverrides((p) => ({ ...p, [key]: v }));
+
+  const bov = (idx: number, field: string, fallback: string) => bookingOverrides[`${idx}_${field}`] ?? fallback;
+  const setBov = (idx: number, field: string, v: string) => setBookingOverrides((p) => ({ ...p, [`${idx}_${field}`]: v }));
+
+  const gross = ov("gross", calcGross);
+  const otherFees = ov("otherFees", 0);
+  const totalIncome = gross + otherFees;
+  const platform = ov("platform", calcPlatform);
+  const paymentFees = ov("paymentFees", 0);
+  const cleaningFees = ov("cleaningFees", 0);
+  const mgmt = ov("mgmt", calcMgmt);
+  const expensesTotal = expenseRows.reduce((a, r) => a + (parseFloat(r.amount) || 0), 0) + ov("expenses", 0);
+  const netToOwner = ov("netToOwner", calcPayable) - expensesTotal;
+  const adjustments = ov("adjustments", 0);
+  const payoutThisMonth = netToOwner + adjustments;
 
   const $ = (n: number) => `$${n.toFixed(2)}`;
 
-  const headerRows: [string, React.ReactNode][] = [
-    ["Property", s.address],
-    ["Owner", onOwnerNameChange
-      ? <input
-          className="no-print-border owner-name-input"
-          value={s.ownerName}
-          onChange={(e) => onOwnerNameChange(e.target.value)}
-          placeholder="输入业主姓名..."
-          style={{ border: s.ownerName ? "none" : "1px dashed #aaa", background: "transparent", color: "#17375E", fontSize: "10pt", fontFamily: "Montserrat, sans-serif", width: "100%", outline: "none", padding: 0 }}
-        />
-      : s.ownerName],
-    ["Month", s.paymentPeriod ?? s.period ?? ""],
-    ["Date Issued", s.dateIssued],
-  ];
+  const patchField = (patch: Partial<StatementData>) => { if (onFieldChange) onFieldChange(patch); };
+
+  const period = s.paymentPeriod ?? s.period ?? "";
+  const [editMonth, setEditMonth] = useState(period);
+  const [editDateIssued, setEditDateIssued] = useState(s.dateIssued);
+
+  const inputStyle: React.CSSProperties = { border: "none", background: "transparent", color: "#17375E", fontSize: "10pt", fontFamily: "Montserrat, sans-serif", width: "100%", outline: "none", padding: 0 };
 
   return (
     <div className="statement-card" style={{ fontFamily: "Montserrat, sans-serif", color: "#17375E", background: "#fff", width: "210mm", margin: "0 auto", padding: "14mm", boxSizing: "border-box" }}>
@@ -69,10 +113,17 @@ function StatementCard({ s, onOwnerNameChange }: { s: StatementData; onOwnerName
       {/* Header info table */}
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8mm", fontSize: "10pt" }}>
         <tbody>
-          {headerRows.map(([label, value], i) => (
-            <tr key={label as string} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
+          {([
+            ["Property", s.address, (v: string) => patchField({ address: v }), "输入物业地址..."],
+            ["Owner", s.ownerName, (v: string) => patchField({ ownerName: v }), "输入业主姓名..."],
+            ["Month", editMonth, (v: string) => setEditMonth(v), ""],
+            ["Date Issued", editDateIssued, (v: string) => setEditDateIssued(v), ""],
+          ] as [string, string, (v: string) => void, string][]).map(([label, value, onChange, ph], i) => (
+            <tr key={label} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
               <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", fontWeight: 700, width: "35%" }}>{label}</td>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>{value}</td>
+              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+                <EditableText value={value} onChange={onChange} placeholder={ph} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -88,21 +139,25 @@ function StatementCard({ s, onOwnerNameChange }: { s: StatementData; onOwnerName
           </tr>
         </thead>
         <tbody>
-          {[
-            ["Gross Revenue", gross, false],
-            ["Other Fees", 0, true],
-            ["Total Income", gross, false],
-            ["Platform Fees", platform, true],
-            ["Payment Fees", 0, false],
-            ["Cleaning Fees", 0, true],
-            ["Management Fees", mgmt, false],
-            ["Expenses", 0, true],
-            ["Net to Owner", payable, false],
-          ].map(([label, amt, shade]) => (
-            <tr key={label as string} style={{ background: shade ? "#F1F1F1" : "#fff" }}>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>{label as string}</td>
+          {([
+            ["Gross Revenue", gross, false, "gross"],
+            ["Other Fees", otherFees, true, "otherFees"],
+            ["Total Income", totalIncome, false, null],
+            ["Platform Fees", platform, true, "platform"],
+            ["Payment Fees", paymentFees, false, "paymentFees"],
+            ["Cleaning Fees", cleaningFees, true, "cleaningFees"],
+            ["Management Fees", mgmt, false, "mgmt"],
+            ["Expenses", expensesTotal, true, "expenses"],
+            ["Net to Owner", netToOwner, false, "netToOwner"],
+          ] as [string, number, boolean, string | null][]).map(([label, amt, shade, key]) => (
+            <tr key={label} style={{ background: shade ? "#F1F1F1" : "#fff" }}>
+              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>{label}</td>
               <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
-                {(amt as number) === 0 ? "$0" : $(amt as number)}
+                {key ? (
+                  <EditableAmount value={amt} onChange={(v) => setOv(key, v)} />
+                ) : (
+                  $(amt)
+                )}
               </td>
             </tr>
           ))}
@@ -121,14 +176,28 @@ function StatementCard({ s, onOwnerNameChange }: { s: StatementData; onOwnerName
           </tr>
         </thead>
         <tbody>
-          {s.bookings.map((b, i) => (
-            <tr key={i} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>{fmtDate(b.checkIn)}</td>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>{fmtDate(b.checkOut)}</td>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>{nights(b.checkIn, b.checkOut)}</td>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>{$(b.grossAmount)}</td>
-            </tr>
-          ))}
+          {s.bookings.map((b, i) => {
+            const ci = bov(i, "checkIn", fmtDate(b.checkIn));
+            const co = bov(i, "checkOut", fmtDate(b.checkOut));
+            const n = bov(i, "nights", String(nights(b.checkIn, b.checkOut)));
+            const total = bov(i, "total", $(b.grossAmount));
+            return (
+              <tr key={i} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
+                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+                  <input className="no-print-border" value={ci} onChange={(e) => setBov(i, "checkIn", e.target.value)} style={inputStyle} />
+                </td>
+                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+                  <input className="no-print-border" value={co} onChange={(e) => setBov(i, "checkOut", e.target.value)} style={inputStyle} />
+                </td>
+                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
+                  <input className="no-print-border" value={n} onChange={(e) => setBov(i, "nights", e.target.value)} style={{ ...inputStyle, textAlign: "right" }} />
+                </td>
+                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
+                  <input className="no-print-border" value={total} onChange={(e) => setBov(i, "total", e.target.value)} style={{ ...inputStyle, textAlign: "right" }} />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -143,7 +212,22 @@ function StatementCard({ s, onOwnerNameChange }: { s: StatementData; onOwnerName
           </tr>
         </thead>
         <tbody>
-          <tr><td colSpan={4} style={{ padding: "4px 8px", border: "1px solid #BEBEBE", color: "#aaa", fontSize: "9pt" }}>—</td></tr>
+          {expenseRows.length === 0 ? (
+            <tr><td colSpan={4} style={{ padding: "4px 8px", border: "1px solid #BEBEBE", color: "#aaa", fontSize: "9pt" }}>—</td></tr>
+          ) : expenseRows.map((er, i) => (
+            <tr key={i} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
+              {(["date", "item", "category", "amount"] as const).map((f) => (
+                <td key={f} style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+                  <input className="no-print-border" value={er[f]} onChange={(e) => { const updated = [...expenseRows]; updated[i] = { ...updated[i], [f]: e.target.value }; setExpenseRows(updated); }} style={{ ...inputStyle, textAlign: f === "amount" ? "right" : "left" }} />
+                </td>
+              ))}
+            </tr>
+          ))}
+          <tr className="no-print">
+            <td colSpan={4} style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+              <button onClick={() => setExpenseRows([...expenseRows, { date: "", item: "", category: "", amount: "" }])} style={{ background: "none", border: "1px dashed #ccc", borderRadius: "3px", color: "#999", cursor: "pointer", fontSize: "9pt", padding: "2px 8px" }}>+ 添加支出</button>
+            </td>
+          </tr>
         </tbody>
       </table>
 
@@ -158,15 +242,17 @@ function StatementCard({ s, onOwnerNameChange }: { s: StatementData; onOwnerName
         <tbody>
           <tr style={{ background: "#fff" }}>
             <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>Net Payable</td>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>{$(payable)}</td>
+            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>{$(netToOwner)}</td>
           </tr>
           <tr style={{ background: "#F1F1F1" }}>
             <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>Adjustments</td>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>NA</td>
+            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
+              <EditableAmount value={adjustments} onChange={(v) => setOv("adjustments", v)} />
+            </td>
           </tr>
           <tr style={{ background: "#fff" }}>
             <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", fontWeight: 700 }}>Payout This Month</td>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right", fontWeight: 700 }}>{$(payable)}</td>
+            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right", fontWeight: 700 }}>{$(payoutThisMonth)}</td>
           </tr>
         </tbody>
       </table>
@@ -214,13 +300,13 @@ export default function OwnerStatementPage() {
   const current = statements[selectedIdx];
   const currentStatus = current?.status;
 
-  const handleOwnerNameChange = (name: string) => {
-    const updated = statements.map((st, i) => i === selectedIdx ? { ...st, ownerName: name } : st);
+  const handleFieldChange = (patch: Partial<StatementData>) => {
+    const updated = statements.map((st, i) => i === selectedIdx ? { ...st, ...patch } : st);
     setStatements(updated);
     sessionStorage.setItem("ownerStatements", JSON.stringify(updated));
     if (current.id) {
       const history = loadHistory();
-      saveHistory(history.map((r) => r.id === current.id ? { ...r, ownerName: name } : r));
+      saveHistory(history.map((r) => r.id === current.id ? { ...r, ...patch } : r));
     }
   };
 
@@ -319,7 +405,7 @@ export default function OwnerStatementPage() {
 
         {/* ── Right content ── */}
         <main style={{ flex: 1, padding: "40px 32px", overflowY: "auto" }}>
-          <StatementCard s={current} onOwnerNameChange={handleOwnerNameChange} />
+          <StatementCard s={current} onFieldChange={handleFieldChange} />
         </main>
       </div>
 
@@ -338,6 +424,8 @@ export default function OwnerStatementPage() {
           }
           .no-print { display: none !important; }
           .owner-name-input { border: none !important; }
+          .no-print-border { border: none !important; background: transparent !important; }
+          span[title="点击编辑"] { border-bottom: none !important; }
           body {
             background: #fff !important;
             margin: 0 !important;

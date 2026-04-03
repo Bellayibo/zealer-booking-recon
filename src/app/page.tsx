@@ -603,11 +603,11 @@ function BookingTab() {
             <button
               onClick={() => {
                 const LISTING_META: Record<string, { address: string; ownerName: string }> = {
-                  "1-24":   { address: "1/24 Wolseley Street Mosman NSW 2088",             ownerName: "Zerong Chen" },
+                  "1-24":   { address: "1/24 Wolseley Road Mosman NSW 2088",              ownerName: "Zerong Chen" },
                   "2-1":    { address: "2/1 Bariston Avenue Cremorne NSW 2090",             ownerName: "Shuna Liu" },
                   "4-12":   { address: "4/12 Clifford Street Mosman NSW 2088",              ownerName: "Hoi Ling Tsoi" },
-                  "4-122":  { address: "4/122 Milsons Point Avenue Milsons Point NSW 2061", ownerName: "" },
-                  "6-40":   { address: "6/40 Humphreys Road Kirribilli NSW 2061",           ownerName: "" },
+                  "4-122":  { address: "4/122 Milson Road Cremorne Point NSW 2090",          ownerName: "" },
+                  "6-40":   { address: "6/40 Humphrey Place Kirribilli NSW 2061",            ownerName: "" },
                   "118A":   { address: "5/118A Kirribilli Avenue Kirribilli NSW 2061",       ownerName: "CK Ng" },
                   "563A":   { address: "563A Castlereagh Street Sydney NSW 2000",            ownerName: "" },
                   "7-108":  { address: "7/108 Ben Boyd Road Neutral Bay NSW 2089",          ownerName: "" },
@@ -733,6 +733,7 @@ function GuestyTab() {
   const [gBankTransactions, setGBankTransactions] = useState<BankTransaction[]>([]);
   const [gReceivedOverrides, setGReceivedOverrides] = useState<Record<number, boolean | null>>({});
   const [gBankParseError, setGBankParseError] = useState<string | null>(null);
+  const [gStatementMonth, setGStatementMonth] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -808,10 +809,15 @@ function GuestyTab() {
 
   const handleExportExcel = async () => {
     setExporting(true);
+    const enriched = results.map((r) => {
+      const bankReceipt = r.totalGuestPayout - (r.channelCommission + r.processingFees) * 1.1;
+      const match = gBankTransactions.length > 0 ? findBankMatch(bankReceipt, r.checkOut, gBankTransactions) : null;
+      return { ...r, bankMatchDate: match?.date ?? "" };
+    });
     const res = await fetch("/api/guesty/export/excel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ results }),
+      body: JSON.stringify({ results: enriched }),
     });
     if (res.ok) {
       const blob = await res.blob();
@@ -825,6 +831,53 @@ function GuestyTab() {
       setError("导出 Excel 失败");
     }
     setExporting(false);
+  };
+
+  const LISTING_META: Record<string, { address: string; ownerName: string }> = {
+    "1-24":   { address: "1/24 Wolseley Street Mosman NSW 2088",             ownerName: "Zerong Chen" },
+    "2-1":    { address: "2/1 Bariston Avenue Cremorne NSW 2090",             ownerName: "Shuna Liu" },
+    "4-12":   { address: "4/12 Clifford Street Mosman NSW 2088",              ownerName: "Hoi Ling Tsoi" },
+    "4-122":  { address: "4/122 Milsons Point Avenue Milsons Point NSW 2061", ownerName: "" },
+    "6-40":   { address: "6/40 Humphreys Road Kirribilli NSW 2061",           ownerName: "" },
+    "118A":   { address: "5/118A Kirribilli Avenue Kirribilli NSW 2061",       ownerName: "CK Ng" },
+    "563A":   { address: "563A Castlereagh Street Sydney NSW 2000",            ownerName: "" },
+    "7-108":  { address: "7/108 Ben Boyd Road Neutral Bay NSW 2089",          ownerName: "" },
+    "10-25":  { address: "10/25 Lavender Street Milsons Point NSW 2061",      ownerName: "" },
+    "620":    { address: "620 George Street Sydney NSW 2000",                 ownerName: "" },
+    "579B":   { address: "579B George Street Sydney NSW 2000",                ownerName: "" },
+    "579A":   { address: "579A George Street Sydney NSW 2000",                ownerName: "" },
+    "517":    { address: "517 Kent Street Sydney NSW 2000",                   ownerName: "" },
+    "Ultimo": { address: "5 West End Lane Ultimo NSW 2007",                   ownerName: "" },
+  };
+
+  const generateSingleStatement = (r: GuestyResult, idx: number) => {
+    if (!r.listingCode) { alert("该行没有匹配的房源代码"); return; }
+    const eff = getGuestyEffective(r, idx);
+    const pmKey = r.checkOut.substring(0, 7);
+    const [pmYear, pmMonth] = pmKey.split("-").map(Number);
+    const paymentPeriodLabel = new Date(pmYear, pmMonth - 1, 1).toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+    const record: StatementRecord = {
+      id: `${Date.now()}-${r.listingCode}-${pmKey}`,
+      listingCode: r.listingCode,
+      address: LISTING_META[r.listingCode]?.address ?? r.listingCode,
+      ownerName: LISTING_META[r.listingCode]?.ownerName ?? "",
+      bookingPeriod: paymentPeriodLabel,
+      paymentPeriod: paymentPeriodLabel,
+      paymentPeriodKey: pmKey,
+      dateIssued: paymentPeriodLabel,
+      bookings: [{
+        checkIn: r.checkIn, checkOut: r.checkOut,
+        grossAmount: r.totalGuestPayout,
+        bookingCharge: (r.channelCommission + r.processingFees) * 1.1,
+        managementFee: eff.managementFee,
+        payable: eff.payable,
+      }],
+      status: "draft" as const,
+    };
+    const existing = loadStatementHistory();
+    saveStatementHistory([...existing, record]);
+    sessionStorage.setItem("ownerStatements", JSON.stringify([record]));
+    window.open("/owner-statement", "_blank");
   };
 
   const channelLabel = (code: string) => {
@@ -945,6 +998,7 @@ function GuestyTab() {
                   <th className="text-right p-3 font-medium text-blue-600">银行应收</th>
                   <th className="p-3 text-left font-medium">到账日期</th>
                   <th className="p-3 text-center font-medium">到账</th>
+                  <th className="p-3 text-center font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -1043,6 +1097,13 @@ function GuestyTab() {
                         );
                       })()}
                     </td>
+                    <td className="p-1 text-center">
+                      <button
+                        onClick={() => generateSingleStatement(r, i)}
+                        className="text-purple-600 hover:text-purple-800 text-xs whitespace-nowrap"
+                        title="生成该条 Statement"
+                      >📄</button>
+                    </td>
                   </tr>
                   );
                 })}
@@ -1110,6 +1171,7 @@ function GuestyTab() {
                       <td className="p-1 text-center">
                         <button onClick={() => deleteManualRow(mr.id)} className="text-gray-300 hover:text-red-500 text-base">✕</button>
                       </td>
+                      <td className="p-1"></td>
                     </tr>
                   );
                 })}
@@ -1117,7 +1179,7 @@ function GuestyTab() {
             </table>
           </div>
 
-          <div className="flex gap-3 flex-wrap">
+          <div className="flex gap-3 flex-wrap items-center">
             <button onClick={() => setStep(1)} className="border px-4 py-2 rounded text-sm hover:bg-gray-50">← 重新上传</button>
             <button onClick={addManualRow} className="border border-blue-300 text-blue-600 px-4 py-2 rounded text-sm hover:bg-blue-50">
               + 手动添加一行
@@ -1129,35 +1191,32 @@ function GuestyTab() {
             >
               {exporting ? "导出中..." : "📥 导出 Excel 汇总"}
             </button>
+            <select
+              value={gStatementMonth}
+              onChange={(e) => setGStatementMonth(e.target.value)}
+              className="border rounded px-3 py-2 text-sm"
+            >
+              <option value="">选择 Checkout 月份</option>
+              {(() => {
+                const months = new Set<string>();
+                results.forEach((r) => { if (r.checkOut) months.add(r.checkOut.substring(0, 7)); });
+                manualRows.forEach((mr) => { if (mr.checkOut) months.add(mr.checkOut.substring(0, 7)); });
+                return Array.from(months).sort().map((m) => <option key={m} value={m}>{m}</option>);
+              })()}
+            </select>
             <button
               onClick={() => {
-                const LISTING_META: Record<string, { address: string; ownerName: string }> = {
-                  "1-24":   { address: "1/24 Wolseley Street Mosman NSW 2088",             ownerName: "Zerong Chen" },
-                  "2-1":    { address: "2/1 Bariston Avenue Cremorne NSW 2090",             ownerName: "Shuna Liu" },
-                  "4-12":   { address: "4/12 Clifford Street Mosman NSW 2088",              ownerName: "Hoi Ling Tsoi" },
-                  "4-122":  { address: "4/122 Milsons Point Avenue Milsons Point NSW 2061", ownerName: "" },
-                  "6-40":   { address: "6/40 Humphreys Road Kirribilli NSW 2061",           ownerName: "" },
-                  "118A":   { address: "5/118A Kirribilli Avenue Kirribilli NSW 2061",       ownerName: "CK Ng" },
-                  "563A":   { address: "563A Castlereagh Street Sydney NSW 2000",            ownerName: "" },
-                  "7-108":  { address: "7/108 Ben Boyd Road Neutral Bay NSW 2089",          ownerName: "" },
-                  "10-25":  { address: "10/25 Lavender Street Milsons Point NSW 2061",      ownerName: "" },
-                  "620":    { address: "620 George Street Sydney NSW 2000",                 ownerName: "" },
-                  "579B":   { address: "579B George Street Sydney NSW 2000",                ownerName: "" },
-                  "517":    { address: "517 Kent Street Sydney NSW 2000",                   ownerName: "" },
-                  "Ultimo": { address: "5 West End Lane Ultimo NSW 2007",                   ownerName: "" },
-                };
+                if (!gStatementMonth) {
+                  alert("请先选择要生成 Statement 的 Checkout 月份。");
+                  return;
+                }
 
-                // Collect confirmed-received rows from CSV results
+                // Collect all rows matching the selected checkout month
                 const byGroup: Record<string, { checkIn: string; checkOut: string; grossAmount: number; bookingCharge: number; managementFee: number; payable: number }[]> = {};
 
                 results.forEach((r, i) => {
                   if (!r.listingCode) return;
-                  const bankReceiptAmt = r.totalGuestPayout - (r.channelCommission + r.processingFees) * 1.1;
-                  const autoMatchTxn = gBankTransactions.length > 0 ? findBankMatch(bankReceiptAmt, r.checkOut, gBankTransactions) : null;
-                  const override = gReceivedOverrides[i];
-                  const recv = override !== undefined && override !== null ? override : (autoMatchTxn !== null && gBankTransactions.length > 0);
-                  if (!recv) return;
-                  // Group by checkout month (booking month), not bank receipt month
+                  if (!r.checkOut.startsWith(gStatementMonth)) return;
                   const pmKey = r.checkOut.substring(0, 7);
                   const groupKey = `${r.listingCode}|${pmKey}`;
                   if (!byGroup[groupKey]) byGroup[groupKey] = [];
@@ -1165,18 +1224,19 @@ function GuestyTab() {
                   byGroup[groupKey].push({
                     checkIn: r.checkIn, checkOut: r.checkOut,
                     grossAmount: r.totalGuestPayout,
-                    bookingCharge: r.channelCommission,
+                    bookingCharge: (r.channelCommission + r.processingFees) * 1.1,
                     managementFee: eff.managementFee,
                     payable: eff.payable,
                   });
                 });
 
-                // Also include confirmed manual rows
+                // Also include manual rows matching the month
                 manualRows.forEach((mr) => {
                   if (!mr.listingCode) return;
+                  const mrMonth = mr.checkOut.substring(0, 7) || "";
+                  if (mrMonth !== gStatementMonth) return;
                   const c = calcManual(mr);
-                  const pmKey = mr.checkOut.substring(0, 7) || new Date().toISOString().substring(0, 7);
-                  const groupKey = `${mr.listingCode}|${pmKey}`;
+                  const groupKey = `${mr.listingCode}|${gStatementMonth}`;
                   if (!byGroup[groupKey]) byGroup[groupKey] = [];
                   byGroup[groupKey].push({
                     checkIn: mr.checkIn, checkOut: mr.checkOut,
@@ -1188,7 +1248,7 @@ function GuestyTab() {
                 });
 
                 if (Object.keys(byGroup).length === 0) {
-                  alert("没有已确认到账的预订，请先在「到账」列确认收款。");
+                  alert(`${gStatementMonth} 没有匹配的预订记录。`);
                   return;
                 }
 
@@ -1220,7 +1280,7 @@ function GuestyTab() {
             >
               📄 生成 Owner Statements
             </button>
-            <span className="text-xs text-gray-400 self-center">仅生成已确认到账（绿色）的房源</span>
+            <span className="text-xs text-gray-400 self-center">选择月份后生成该月所有房源的 Statement</span>
           </div>
         </div>
       )}
