@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import Image from "next/image";
+import { LISTINGS } from "@/config/listings";
 
 interface StatementBooking {
   checkIn: string;
@@ -32,20 +33,25 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function fmtMoney(n: number): string {
+  if (n === 0) return "$0";
+  return `$${n.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function EditableAmount({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [text, setText] = useState(value.toFixed(2));
   const [focused, setFocused] = useState(false);
-  // Sync from parent when not focused
-  const displayVal = focused ? text : value.toFixed(2);
+  // Display with $ and thousands separator when not focused; raw number when editing
+  const displayVal = focused ? text : fmtMoney(value);
   return (
     <input
       value={displayVal}
       onFocus={() => { setText(value.toFixed(2)); setFocused(true); }}
       onChange={(e) => setText(e.target.value)}
-      onBlur={() => { setFocused(false); const n = parseFloat(text); if (!isNaN(n)) onChange(n); }}
+      onBlur={() => { setFocused(false); const n = parseFloat(text.replace(/[$,]/g, "")); if (!isNaN(n)) onChange(n); }}
       onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
       className="no-print-border"
-      style={{ width: "100%", textAlign: "right", border: "none", padding: "0", fontSize: "10pt", fontFamily: "Montserrat, sans-serif", color: "#17375E", outline: "none", background: "transparent" }}
+      style={{ width: "100%", textAlign: "right", border: "none", padding: "0", fontSize: "10pt", fontFamily: "Montserrat, sans-serif", color: "#17365D", outline: "none", background: "transparent" }}
     />
   );
 }
@@ -89,29 +95,80 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
   const adjustments = ov("adjustments", 0);
   const payoutThisMonth = netToOwner + adjustments;
 
-  const $ = (n: number) => `$${n.toFixed(2)}`;
+  const $ = (n: number) => fmtMoney(n);
 
   const patchField = (patch: Partial<StatementData>) => { if (onFieldChange) onFieldChange(patch); };
 
   const period = s.paymentPeriod ?? s.period ?? "";
+  const today = new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
   const [editMonth, setEditMonth] = useState(period);
-  const [editDateIssued, setEditDateIssued] = useState(s.dateIssued);
+  // Always default Date Issued to today (the generation date)
+  const [editDateIssued, setEditDateIssued] = useState(today);
 
-  const inputStyle: React.CSSProperties = { border: "none", background: "transparent", color: "#17375E", fontSize: "10pt", fontFamily: "Montserrat, sans-serif", width: "100%", outline: "none", padding: 0 };
+  const NAVY = "#17365D";
+  const BORDER_COLOR = "#BFBFBF";
+  const BAND = "#F2F2F2";
+  const tdBase: React.CSSProperties = { padding: "2px 6px", border: `1px solid ${BORDER_COLOR}` };
+  const thBase: React.CSSProperties = { ...tdBase, fontWeight: 700, background: "transparent" };
+  const inputStyle: React.CSSProperties = { border: "none", background: "transparent", color: NAVY, fontSize: "10pt", fontFamily: "Montserrat, sans-serif", width: "100%", outline: "none", padding: 0 };
 
   return (
-    <div className="statement-card" style={{ fontFamily: "Montserrat, sans-serif", color: "#17375E", background: "#fff", width: "210mm", margin: "0 auto", padding: "14mm", boxSizing: "border-box" }}>
-
-      {/* Header: logo + title */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "10mm" }}>
-        <div style={{ fontFamily: "Alice, Georgia, serif", fontSize: "22pt", fontWeight: 700, color: "#17375E" }}>
-          MONTHLY OWNER STATEMENT
+    <div
+      className="statement-card"
+      style={{
+        fontFamily: "Montserrat, sans-serif",
+        color: NAVY,
+        background: "#fff",
+        width: "215.9mm", // US Letter width
+        height: "279.4mm", // fixed single page
+        margin: "0 auto",
+        padding: "42mm 30mm 32mm 30mm",
+        boxSizing: "border-box",
+        position: "relative",
+        overflow: "hidden",
+        fontSize: "9pt",
+      }}
+    >
+      {/* Decorative layer: single bg image + footer (fits on one page).
+          Wrapped in a height:0 container so it doesn't expand the card. */}
+      <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: 0, overflow: "visible", pointerEvents: "none", zIndex: 0 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/statement-bg.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            width: "189.05mm",
+            height: "267.37mm",
+            left: "13.42mm",
+            top: "-3.32mm",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "249.4mm",
+            left: "30mm",
+            fontSize: "9pt",
+            color: NAVY,
+            lineHeight: 1.5,
+          }}
+        >
+          <div style={{ textDecoration: "underline" }}>+61 2 9413 3771</div>
+          <div style={{ textDecoration: "underline" }}>www.zealerholiday.com.au</div>
+          <div style={{ textDecoration: "underline" }}>management@zealerholiday.com.au</div>
         </div>
-        <Image src="/logo.jpg" alt="Zealer Holiday" width={160} height={48} style={{ objectFit: "contain" }} />
+      </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
+
+      {/* Title (logo is part of background image) */}
+      <div style={{ fontFamily: "Alice, Georgia, serif", fontSize: "16pt", fontWeight: 700, color: NAVY, marginBottom: "3mm" }}>
+        MONTHLY OWNER STATEMENT
       </div>
 
       {/* Header info table */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8mm", fontSize: "10pt" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "2mm", fontSize: "10pt" }}>
         <tbody>
           {([
             ["Property", s.address, (v: string) => patchField({ address: v }), "输入物业地址..."],
@@ -119,9 +176,9 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
             ["Month", editMonth, (v: string) => setEditMonth(v), ""],
             ["Date Issued", editDateIssued, (v: string) => setEditDateIssued(v), ""],
           ] as [string, string, (v: string) => void, string][]).map(([label, value, onChange, ph], i) => (
-            <tr key={label} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", fontWeight: 700, width: "35%" }}>{label}</td>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+            <tr key={label} style={{ background: i % 2 === 1 ? BAND : "transparent" }}>
+              <td style={{ ...tdBase, fontWeight: 700, width: "35%" }}>{label}</td>
+              <td style={tdBase}>
                 <EditableText value={value} onChange={onChange} placeholder={ph} />
               </td>
             </tr>
@@ -130,12 +187,12 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
       </table>
 
       {/* Summary */}
-      <div style={{ fontWeight: 700, fontSize: "11pt", marginBottom: "4px" }}>Summary</div>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8mm", fontSize: "10pt" }}>
+      <div style={{ fontWeight: 700, fontSize: "11pt", marginTop: "1mm", marginBottom: "0.5mm" }}>Summary</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "2mm", fontSize: "10pt" }}>
         <thead>
-          <tr style={{ background: "#17375E", color: "#fff" }}>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "left" }}>Item</th>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>Amount (AUD)</th>
+          <tr>
+            <th style={{ ...thBase, textAlign: "left" }}>Item</th>
+            <th style={{ ...thBase, textAlign: "right" }}>Amount (AUD)</th>
           </tr>
         </thead>
         <tbody>
@@ -150,9 +207,9 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
             ["Expenses", expensesTotal, true, "expenses"],
             ["Net to Owner", netToOwner, false, "netToOwner"],
           ] as [string, number, boolean, string | null][]).map(([label, amt, shade, key]) => (
-            <tr key={label} style={{ background: shade ? "#F1F1F1" : "#fff" }}>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>{label}</td>
-              <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
+            <tr key={label} style={{ background: shade ? BAND : "transparent" }}>
+              <td style={tdBase}>{label}</td>
+              <td style={{ ...tdBase, textAlign: "right" }}>
                 {key ? (
                   <EditableAmount value={amt} onChange={(v) => setOv(key, v)} />
                 ) : (
@@ -165,14 +222,14 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
       </table>
 
       {/* Bookings */}
-      <div style={{ fontWeight: 700, fontSize: "11pt", marginBottom: "4px" }}>Bookings</div>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8mm", fontSize: "10pt" }}>
+      <div style={{ fontWeight: 700, fontSize: "11pt", marginTop: "1mm", marginBottom: "0.5mm" }}>Bookings</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "2mm", fontSize: "10pt" }}>
         <thead>
-          <tr style={{ background: "#17375E", color: "#fff" }}>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "left" }}>Check In</th>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "left" }}>Check Out</th>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>Nights</th>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>Total</th>
+          <tr>
+            <th style={{ ...thBase, textAlign: "left" }}>Check in</th>
+            <th style={{ ...thBase, textAlign: "left" }}>Check out</th>
+            <th style={{ ...thBase, textAlign: "right" }}>Nights</th>
+            <th style={{ ...thBase, textAlign: "right" }}>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -182,17 +239,17 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
             const n = bov(i, "nights", String(nights(b.checkIn, b.checkOut)));
             const total = bov(i, "total", $(b.grossAmount));
             return (
-              <tr key={i} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
-                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+              <tr key={i} style={{ background: i % 2 === 1 ? BAND : "transparent" }}>
+                <td style={tdBase}>
                   <input className="no-print-border" value={ci} onChange={(e) => setBov(i, "checkIn", e.target.value)} style={inputStyle} />
                 </td>
-                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+                <td style={tdBase}>
                   <input className="no-print-border" value={co} onChange={(e) => setBov(i, "checkOut", e.target.value)} style={inputStyle} />
                 </td>
-                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
+                <td style={{ ...tdBase, textAlign: "right" }}>
                   <input className="no-print-border" value={n} onChange={(e) => setBov(i, "nights", e.target.value)} style={{ ...inputStyle, textAlign: "right" }} />
                 </td>
-                <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
+                <td style={{ ...tdBase, textAlign: "right" }}>
                   <input className="no-print-border" value={total} onChange={(e) => setBov(i, "total", e.target.value)} style={{ ...inputStyle, textAlign: "right" }} />
                 </td>
               </tr>
@@ -202,60 +259,70 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
       </table>
 
       {/* Expenses */}
-      <div style={{ fontWeight: 700, fontSize: "11pt", marginBottom: "4px", pageBreakInside: "avoid", breakInside: "avoid" }}>Expenses</div>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8mm", fontSize: "10pt", pageBreakInside: "avoid", breakInside: "avoid" }}>
+      <div style={{ fontWeight: 700, fontSize: "11pt", marginTop: "1mm", marginBottom: "0.5mm", pageBreakInside: "avoid", breakInside: "avoid" }}>Expenses</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "2mm", fontSize: "10pt", pageBreakInside: "avoid", breakInside: "avoid" }}>
         <thead>
-          <tr style={{ background: "#17375E", color: "#fff" }}>
-            {["Date", "Item", "Category", "Amount"].map((h) => (
-              <th key={h} style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "left" }}>{h}</th>
+          <tr>
+            {["Date", "Item", "Category", "Amount"].map((h, i) => (
+              <th key={h} style={{ ...thBase, textAlign: i === 3 ? "right" : "left" }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {expenseRows.length === 0 ? (
-            <tr><td colSpan={4} style={{ padding: "4px 8px", border: "1px solid #BEBEBE", color: "#aaa", fontSize: "9pt" }}>—</td></tr>
+            <tr>
+              <td style={tdBase}>&nbsp;</td>
+              <td style={tdBase}>&nbsp;</td>
+              <td style={tdBase}>&nbsp;</td>
+              <td style={{ ...tdBase, textAlign: "right" }}>&nbsp;</td>
+            </tr>
           ) : expenseRows.map((er, i) => (
-            <tr key={i} style={{ background: i % 2 === 1 ? "#F1F1F1" : "#fff" }}>
+            <tr key={i} style={{ background: i % 2 === 1 ? BAND : "transparent" }}>
               {(["date", "item", "category", "amount"] as const).map((f) => (
-                <td key={f} style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+                <td key={f} style={tdBase}>
                   <input className="no-print-border" value={er[f]} onChange={(e) => { const updated = [...expenseRows]; updated[i] = { ...updated[i], [f]: e.target.value }; setExpenseRows(updated); }} style={{ ...inputStyle, textAlign: f === "amount" ? "right" : "left" }} />
                 </td>
               ))}
             </tr>
           ))}
           <tr className="no-print">
-            <td colSpan={4} style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>
+            <td colSpan={4} style={tdBase}>
               <button onClick={() => setExpenseRows([...expenseRows, { date: "", item: "", category: "", amount: "" }])} style={{ background: "none", border: "1px dashed #ccc", borderRadius: "3px", color: "#999", cursor: "pointer", fontSize: "9pt", padding: "2px 8px" }}>+ 添加支出</button>
             </td>
           </tr>
         </tbody>
       </table>
 
-      {/* Payout */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10pt", pageBreakInside: "avoid", breakInside: "avoid" }}>
+      {/* Payout — wrap title + table to avoid page break between them */}
+      <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+      <div style={{ fontWeight: 700, fontSize: "11pt", marginTop: "1mm", marginBottom: "0.5mm" }}>Payout</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10pt" }}>
         <thead>
-          <tr style={{ background: "#17375E", color: "#fff" }}>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "left" }}>Description</th>
-            <th style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>Amount</th>
+          <tr>
+            <th style={{ ...thBase, textAlign: "left" }}>Description</th>
+            <th style={{ ...thBase, textAlign: "right" }}>Amount</th>
           </tr>
         </thead>
         <tbody>
-          <tr style={{ background: "#fff" }}>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>Net Payable</td>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>{$(netToOwner)}</td>
+          <tr style={{ background: "transparent" }}>
+            <td style={tdBase}>Net Payable</td>
+            <td style={{ ...tdBase, textAlign: "right" }}>{$(netToOwner)}</td>
           </tr>
-          <tr style={{ background: "#F1F1F1" }}>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE" }}>Adjustments</td>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right" }}>
+          <tr style={{ background: BAND }}>
+            <td style={tdBase}>Adjustments</td>
+            <td style={{ ...tdBase, textAlign: "right" }}>
               <EditableAmount value={adjustments} onChange={(v) => setOv("adjustments", v)} />
             </td>
           </tr>
-          <tr style={{ background: "#fff" }}>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", fontWeight: 700 }}>Payout This Month</td>
-            <td style={{ padding: "4px 8px", border: "1px solid #BEBEBE", textAlign: "right", fontWeight: 700 }}>{$(payoutThisMonth)}</td>
+          <tr style={{ background: "transparent" }}>
+            <td style={{ ...tdBase, fontWeight: 700 }}>Payout This Month</td>
+            <td style={{ ...tdBase, textAlign: "right", fontWeight: 700 }}>{$(payoutThisMonth)}</td>
           </tr>
         </tbody>
       </table>
+      </div>
+
+      </div>
     </div>
   );
 }
@@ -272,7 +339,14 @@ export default function OwnerStatementPage() {
   const [statements, setStatements] = useState<StatementData[]>(() => {
     if (typeof window === "undefined") return [];
     const raw = sessionStorage.getItem("ownerStatements");
-    return raw ? JSON.parse(raw) : [];
+    const loaded: StatementData[] = raw ? JSON.parse(raw) : [];
+    // Refresh address & ownerName from latest LISTINGS config (keeps config as source of truth)
+    return loaded.map((s) => {
+      const listing = LISTINGS.find((l) => l.code === s.listingCode);
+      return listing
+        ? { ...s, address: listing.address, ownerName: listing.ownerName || s.ownerName }
+        : s;
+    });
   });
   const [selectedIdx, setSelectedIdx] = useState(0);
 
@@ -303,11 +377,12 @@ export default function OwnerStatementPage() {
   const exportWord = async () => {
     const s = statements[selectedIdx];
     if (!s) return;
+    const todayIssued = new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
     const payload = {
       statements: [{
         listingCode: s.listingCode,
         period: s.bookingPeriod ?? s.period ?? "",
-        dateIssued: s.dateIssued,
+        dateIssued: todayIssued, // always use generation date
         bookings: s.bookings,
         address: s.address,
         ownerName: s.ownerName,
@@ -463,8 +538,8 @@ export default function OwnerStatementPage() {
         .owner-name-input:focus { border: 1px dashed #17375E !important; }
         @media print {
           @page {
-            size: A4;
-            margin: 14mm 12mm;
+            size: letter;
+            margin: 0;
           }
           /* Remove browser-generated header/footer (date, URL, page number) */
           html {
@@ -474,6 +549,7 @@ export default function OwnerStatementPage() {
           .no-print { display: none !important; }
           .owner-name-input { border: none !important; }
           .no-print-border { border: none !important; background: transparent !important; }
+          input::placeholder { color: transparent !important; opacity: 0 !important; }
           span[title="点击编辑"] { border-bottom: none !important; }
           body {
             background: #fff !important;
@@ -490,10 +566,12 @@ export default function OwnerStatementPage() {
           .statement-card {
             box-shadow: none !important;
             margin: 0 !important;
-            width: 100% !important;
-            padding: 14mm 14mm 0 14mm !important;
-            min-height: unset !important;
+            width: 215.9mm !important;
+            height: 279.4mm !important;
+            padding: 42mm 30mm 32mm 30mm !important;
             background: #fff !important;
+            overflow: hidden !important;
+            page-break-after: avoid !important;
           }
         }
       `}</style>

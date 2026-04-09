@@ -13,7 +13,7 @@ export const LISTINGS: Listing[] = [
   { code: "1-24",   alias: "Mosman Hideaway w Waterview",  cleaningFee: 230, cleaningFeeTo: "owner", managementFeeRate: 0.20, address: "1/24 Wolseley Street Mosman NSW 2088",            ownerName: "Zerong Chen" },
   { code: "2-1",    alias: "Harbour Grove Sanctuary",       cleaningFee: 140, cleaningFeeTo: "owner", managementFeeRate: 0.11, address: "2/1 Bariston Avenue Cremorne NSW 2090",            ownerName: "Shuna Liu" },
   { code: "4-12",   alias: "Balmoral & Beyond",             cleaningFee: 140, cleaningFeeTo: "owner", managementFeeRate: 0.20, address: "4/12 Clifford Street Mosman NSW 2088",             ownerName: "Hoi Ling Tsoi" },
-  { code: "4-122",  alias: "Oasis Retreat by Cremorne",     cleaningFee: 130, cleaningFeeTo: "host",  managementFeeRate: 0.18, address: "4/122 Milsons Point Avenue Milsons Point NSW 2090", ownerName: "" },
+  { code: "4-122",  alias: "Oasis Retreat by Cremorne",     cleaningFee: 130, cleaningFeeTo: "host",  managementFeeRate: 0.18, address: "4/122 Milson Road Cremorne NSW 2090", ownerName: "Abby Luo" },
   { code: "6-40",   alias: "Platform & Parklands",          cleaningFee: 130, cleaningFeeTo: "owner", managementFeeRate: 0.20, address: "6/40 Humphreys Road Kirribilli NSW 2061",           ownerName: "" },
   { code: "118A",   alias: "Harbour & Heritage",            cleaningFee: 180, cleaningFeeTo: "owner", managementFeeRate: 0.20, address: "5/118A Kirribilli Avenue Kirribilli NSW 2061",      ownerName: "CK Ng" },
   { code: "7-108",  alias: "Harbour View Lookout",          cleaningFee: 190, cleaningFeeTo: "owner", managementFeeRate: 0.20, address: "7/108 Ben Boyd Road Neutral Bay NSW 2089",          ownerName: "" },
