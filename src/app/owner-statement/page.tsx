@@ -300,6 +300,39 @@ export default function OwnerStatementPage() {
   const current = statements[selectedIdx];
   const currentStatus = current?.status;
 
+  const exportWord = async () => {
+    const s = statements[selectedIdx];
+    if (!s) return;
+    const payload = {
+      statements: [{
+        listingCode: s.listingCode,
+        period: s.bookingPeriod ?? s.period ?? "",
+        dateIssued: s.dateIssued,
+        bookings: s.bookings,
+        address: s.address,
+        ownerName: s.ownerName,
+      }],
+    };
+    try {
+      const res = await fetch("/api/statement/docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Owner_Statement_${s.listingCode}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("DOCX export error:", err);
+      alert("Word 导出失败，请重试。");
+    }
+  };
+
   const handleFieldChange = (patch: Partial<StatementData>) => {
     const updated = statements.map((st, i) => i === selectedIdx ? { ...st, ...patch } : st);
     setStatements(updated);
@@ -375,17 +408,28 @@ export default function OwnerStatementPage() {
           {/* Action buttons */}
           <div style={{ padding: "16px 12px", borderTop: "1px solid rgba(255,255,255,0.12)", display: "flex", flexDirection: "column", gap: "8px" }}>
             {current?.id && currentStatus === "draft" && (
-              <button
-                onClick={() => { window.print(); setTimeout(() => markStatus("exported"), 500); }}
-                style={{ background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", padding: "8px 12px", fontWeight: 700, cursor: "pointer", fontSize: "12px", textAlign: "center" }}
-              >
-                Export PDF
-              </button>
+              <>
+                <button
+                  onClick={() => { window.print(); setTimeout(() => markStatus("exported"), 500); }}
+                  style={{ background: "#3b82f6", color: "#fff", border: "none", borderRadius: "6px", padding: "8px 12px", fontWeight: 700, cursor: "pointer", fontSize: "12px", textAlign: "center" }}
+                >
+                  Export PDF
+                </button>
+                <button
+                  onClick={exportWord}
+                  style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: "6px", padding: "8px 12px", fontWeight: 700, cursor: "pointer", fontSize: "12px", textAlign: "center" }}
+                >
+                  Export Word
+                </button>
+              </>
             )}
             {current?.id && currentStatus === "exported" && (
               <>
                 <button onClick={() => window.print()} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "6px", padding: "8px 12px", fontWeight: 600, cursor: "pointer", fontSize: "12px" }}>
                   Export PDF / Print
+                </button>
+                <button onClick={exportWord} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "6px", padding: "8px 12px", fontWeight: 600, cursor: "pointer", fontSize: "12px" }}>
+                  Export Word
                 </button>
                 <button onClick={() => markStatus("paid")} style={{ background: "#22c55e", color: "#fff", border: "none", borderRadius: "6px", padding: "8px 12px", fontWeight: 700, cursor: "pointer", fontSize: "12px" }}>
                   ✓ 标记已付款
@@ -393,9 +437,14 @@ export default function OwnerStatementPage() {
               </>
             )}
             {((!current?.id) || currentStatus === "paid") && (
-              <button onClick={() => window.print()} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "6px", padding: "8px 12px", fontWeight: 600, cursor: "pointer", fontSize: "12px" }}>
-                Export PDF / Print
-              </button>
+              <>
+                <button onClick={() => window.print()} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "6px", padding: "8px 12px", fontWeight: 600, cursor: "pointer", fontSize: "12px" }}>
+                  Export PDF / Print
+                </button>
+                <button onClick={exportWord} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "6px", padding: "8px 12px", fontWeight: 600, cursor: "pointer", fontSize: "12px" }}>
+                  Export Word
+                </button>
+              </>
             )}
             <button onClick={() => window.close()} style={{ background: "transparent", color: "#7ab3d4", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", padding: "8px 12px", cursor: "pointer", fontSize: "12px" }}>
               Close
