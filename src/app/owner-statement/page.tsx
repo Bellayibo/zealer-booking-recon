@@ -119,47 +119,33 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
         fontFamily: "Montserrat, sans-serif",
         color: NAVY,
         background: "#fff",
-        width: "215.9mm", // US Letter width
-        height: "279.4mm", // fixed single page
+        width: "215.9mm",
+        minHeight: "279.4mm",
         margin: "0 auto",
-        padding: "42mm 30mm 32mm 30mm",
+        padding: "48mm 30mm 32mm 30mm",
         boxSizing: "border-box",
         position: "relative",
-        overflow: "hidden",
         fontSize: "9pt",
       }}
     >
-      {/* Decorative layer: single bg image + footer (fits on one page).
-          Wrapped in a height:0 container so it doesn't expand the card. */}
-      <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: 0, overflow: "visible", pointerEvents: "none", zIndex: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/statement-bg.png"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            width: "189.05mm",
-            height: "267.37mm",
-            left: "13.42mm",
-            top: "-3.32mm",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: "249.4mm",
-            left: "30mm",
-            fontSize: "9pt",
-            color: NAVY,
-            lineHeight: 1.5,
-          }}
-        >
-          <div style={{ textDecoration: "underline" }}>+61 2 9413 3771</div>
-          <div style={{ textDecoration: "underline" }}>www.zealerholiday.com.au</div>
-          <div style={{ textDecoration: "underline" }}>management@zealerholiday.com.au</div>
-        </div>
-      </div>
+      {/* Full-page background image — uses <img> so it prints without
+          needing "Background graphics" checkbox. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="page-bg"
+        src="/statement-bg-page.png"
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "215.9mm",
+          height: "279.4mm",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      />
       <div style={{ position: "relative", zIndex: 1 }}>
 
       {/* Title (logo is part of background image) */}
@@ -320,6 +306,18 @@ function StatementCard({ s, onFieldChange }: { s: StatementData; onFieldChange?:
           </tr>
         </tbody>
       </table>
+      </div>
+
+      {/* Footer — in normal flow for screen, fixed for print */}
+      <div className="page-footer" style={{
+        marginTop: "8mm",
+        fontSize: "9pt",
+        color: NAVY,
+        lineHeight: 1.5,
+      }}>
+        <div style={{ textDecoration: "underline" }}>+61 2 9413 3771</div>
+        <div style={{ textDecoration: "underline" }}>www.zealerholiday.com.au</div>
+        <div style={{ textDecoration: "underline" }}>management@zealerholiday.com.au</div>
       </div>
 
       </div>
@@ -533,15 +531,26 @@ export default function OwnerStatementPage() {
         </main>
       </div>
 
+      {/* Print-only: all statements, one per page */}
+      <div className="print-all-container">
+        {statements.map((s, i) => (
+          <div key={i} className={i < statements.length - 1 ? "print-page-break" : ""}>
+            <StatementCard s={s} />
+          </div>
+        ))}
+      </div>
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Alice&display=swap');
         .owner-name-input:focus { border: 1px dashed #17375E !important; }
+        /* Hide print-all container on screen */
+        .print-all-container { display: none; }
+
         @media print {
           @page {
             size: letter;
-            margin: 0;
+            margin: 48mm 30mm 35mm 30mm;
           }
-          /* Remove browser-generated header/footer (date, URL, page number) */
           html {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -550,28 +559,46 @@ export default function OwnerStatementPage() {
           .owner-name-input { border: none !important; }
           .no-print-border { border: none !important; background: transparent !important; }
           input::placeholder { color: transparent !important; opacity: 0 !important; }
-          span[title="点击编辑"] { border-bottom: none !important; }
           body {
             background: #fff !important;
             margin: 0 !important;
             padding: 0 !important;
           }
-          /* Hide the left sidebar so only statement card prints */
+          /* Hide interactive view; show print-all container */
           aside { display: none !important; }
-          main {
-            padding: 0 !important;
-            margin: 0 !important;
-            background: #fff !important;
+          main { display: none !important; }
+          .print-all-container {
+            display: block !important;
+          }
+          /* Page break between statements */
+          .print-page-break {
+            page-break-after: always;
+            break-after: always;
           }
           .statement-card {
             box-shadow: none !important;
             margin: 0 !important;
+            width: 100% !important;
+            min-height: 0 !important;
+            padding: 0 30mm !important;
+            background: #fff !important;
+          }
+          /* Background image: position:fixed repeats on EVERY printed page */
+          .page-bg {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
             width: 215.9mm !important;
             height: 279.4mm !important;
-            padding: 42mm 30mm 32mm 30mm !important;
-            background: #fff !important;
-            overflow: hidden !important;
-            page-break-after: avoid !important;
+            z-index: 0 !important;
+          }
+          /* Footer: fixed at bottom of every page */
+          .page-footer {
+            position: fixed !important;
+            bottom: 15mm !important;
+            left: 30mm !important;
+            margin: 0 !important;
+            z-index: 2 !important;
           }
         }
       `}</style>
