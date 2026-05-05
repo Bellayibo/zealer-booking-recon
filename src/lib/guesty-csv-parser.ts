@@ -19,7 +19,7 @@ export type ParseGuestyCsvResult =
   | { success: true; bookings: GuestyBooking[] }
   | { success: false; error: string };
 
-const REQUIRED_COLS = ["CHECK-IN DATE", "CHECK-OUT DATE", "LISTING", "NET INCOME", "COMMISSION", "OWNER REVENUE"];
+const REQUIRED_COLS = ["CHECK-IN DATE", "CHECK-OUT DATE", "LISTING", "NET ACCOMMODATION FARE", "COMMISSION", "OWNER REVENUE"];
 
 function parseDate(raw: string): string {
   // "2026-02-06 03:00 PM" → "2026-02-06"
@@ -86,7 +86,7 @@ export function parseGuestyCsv(csv: string, period = ""): ParseGuestyCsvResult {
       totalGuestPayout: totalGuestPayout || num(get("TOTAL PAYOUT")),
       totalPayout: num(get("TOTAL PAYOUT")),
       totalFees: num(get("TOTAL FEES")),
-      netIncome: num(get("NET INCOME")),
+      netIncome: num(get("NET ACCOMMODATION FARE")),
       commission: num(get("COMMISSION")),
       ownerRevenue,
       channelCommission: num(get("CHANNEL COMMISSION INCL TAX")),
