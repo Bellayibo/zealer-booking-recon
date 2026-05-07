@@ -29,6 +29,7 @@ interface GuestyResult {
   payable: number;
   totalFees: number;
   bankMatchDate?: string;
+  cleaningFeeTo?: "host" | "owner" | null;
 }
 
 export async function POST(request: Request) {
@@ -38,27 +39,29 @@ export async function POST(request: Request) {
 
     const rows = results.map((r) => {
       const bankReceipt = r.totalGuestPayout - (r.channelCommission + r.processingFees) * 1.1;
+      const bookingCharge = (r.channelCommission + r.processingFees) * 1.1;
       return {
         Listing: r.listingCode ?? "⚠️ 未匹配",
-        "Confirmation Code": r.confirmationCode || "-",
         "Creation Date": r.creationDate || "-",
         "Check In": r.checkIn,
         "Check Out": r.checkOut,
         "Total Guest Payout": r.totalGuestPayout,
         "Total Payout": r.totalPayout,
-        "Cleaning Fee": r.totalFees,
         "Channel Commission": r.channelCommission,
         "Processing Fees": r.processingFees,
-        "Platform %": `${(r.platformPct * 100).toFixed(2)}%`,
+        "Booking Charge": Math.round(bookingCharge * 100) / 100,
+        "Platform %": r.platformPct,
+        "Clean Fee": r.totalFees,
+        "Clean Fee Charge": Math.round(r.platformChargeCleaning * 100) / 100,
+        "Net Income": r.netIncome,
+        "Platform Charge": Math.round(r.platformChargeNight * 100) / 100,
+        "Expected Mgmt Rate": r.expectedRate ?? 0,
+        "Houst Charge": Math.round(r.managementFee * 100) / 100,
+        "Cleaning fee(H&O)": r.cleaningFeeTo === "host" ? "H" : r.cleaningFeeTo === "owner" ? "O" : "-",
+        Payable: Math.round(r.payable * 100) / 100,
+        Channel: r.confirmationCode.startsWith("GY-") ? "Guesty/Direct" : r.confirmationCode.startsWith("BC-") ? "Booking.com" : "Other",
         "Bank Receipt (银行应收)": Math.round(bankReceipt * 100) / 100,
         "Bank Match Date (到账日期)": r.bankMatchDate || "—",
-        "Net Income": r.netIncome,
-        "Expected Mgmt Rate": r.expectedRate != null ? `${(r.expectedRate * 100).toFixed(0)}%` : "-",
-        "Actual Mgmt Rate": r.actualRate != null ? `${(r.actualRate * 100).toFixed(1)}%` : "-",
-        "Management Fee": r.commission,
-        "Owner Revenue": r.ownerRevenue,
-        "Payable": r.payable,
-        Channel: r.confirmationCode.startsWith("GY-") ? "Guesty/Direct" : r.confirmationCode.startsWith("BC-") ? "Booking.com" : "Other",
       };
     });
 

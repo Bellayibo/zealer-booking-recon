@@ -981,24 +981,29 @@ function GuestyTab() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left p-3 font-medium">房源</th>
-                  <th className="text-left p-3 font-medium">渠道</th>
-                  <th className="text-left p-3 font-medium">创建日期</th>
-                  <th className="text-left p-3 font-medium">入住期间</th>
-                  <th className="text-right p-3 font-medium">Amount</th>
-                  <th className="text-right p-3 font-medium">平台费%</th>
-                  <th className="text-right p-3 font-medium">Night Fee</th>
-                  <th className="text-right p-3 font-medium text-red-500">房费 Platform</th>
-                  <th className="text-right p-3 font-medium">清洁费</th>
-                  <th className="text-right p-3 font-medium text-red-500">清洁 Platform</th>
-                  <th className="text-right p-3 font-medium">Night Fee Net</th>
-                  <th className="text-right p-3 font-medium">Host 管理费%</th>
-                  <th className="text-right p-3 font-medium text-orange-500">Host 管理费</th>
-                  <th className="text-right p-3 font-medium font-bold">Payable</th>
-                  <th className="text-right p-3 font-medium text-blue-600">银行应收</th>
-                  <th className="p-3 text-left font-medium">到账日期</th>
-                  <th className="p-3 text-center font-medium">到账</th>
-                  <th className="p-3 text-center font-medium">操作</th>
+                  <th className="text-left p-2 font-medium">Listing</th>
+                  <th className="text-left p-2 font-medium">Creation Date</th>
+                  <th className="text-left p-2 font-medium">Check In</th>
+                  <th className="text-left p-2 font-medium">Check Out</th>
+                  <th className="text-right p-2 font-medium">Total Guest Payout</th>
+                  <th className="text-right p-2 font-medium">Total Payout</th>
+                  <th className="text-right p-2 font-medium">Channel Commission</th>
+                  <th className="text-right p-2 font-medium">Processing Fees</th>
+                  <th className="text-right p-2 font-medium">Booking Charge</th>
+                  <th className="text-right p-2 font-medium">Platform %</th>
+                  <th className="text-right p-2 font-medium">Clean Fee</th>
+                  <th className="text-right p-2 font-medium text-red-500">Clean Fee Charge</th>
+                  <th className="text-right p-2 font-medium">Net Income</th>
+                  <th className="text-right p-2 font-medium text-red-500">Platform Charge</th>
+                  <th className="text-right p-2 font-medium">Expected Mgmt Rate</th>
+                  <th className="text-right p-2 font-medium text-orange-500">Houst Charge</th>
+                  <th className="text-center p-2 font-medium" title="Cleaning fee 归属：H = Host，O = Owner">Cleaning fee(H&O)</th>
+                  <th className="text-right p-2 font-medium font-bold">Payable</th>
+                  <th className="text-left p-2 font-medium">Channel</th>
+                  <th className="text-right p-2 font-medium text-blue-600">Bank Receipt (银行应收)</th>
+                  <th className="text-left p-2 font-medium">Bank Match Date (到账日期)</th>
+                  <th className="text-center p-2 font-medium">到账</th>
+                  <th className="text-center p-2 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -1015,20 +1020,25 @@ function GuestyTab() {
                     : received === true ? "bg-green-50"
                     : !r.rateMatch ? "bg-yellow-50"
                     : "hover:bg-gray-50";
+                  const bookingCharge = (r.channelCommission + r.processingFees) * 1.1;
                   return (
                   <tr key={i} className={`border-t ${rowBg}`}>
                     <td className="p-1 font-mono text-xs">
                       {r.listingCode ?? <span className="text-orange-600 text-xs">⚠️ 未匹配</span>}
                     </td>
-                    <td className="p-1 text-xs">{channelLabel(r.confirmationCode)}</td>
                     <td className="p-1 text-xs text-gray-500 whitespace-nowrap">{r.creationDate}</td>
-                    <td className="p-1 text-xs text-gray-600 whitespace-nowrap">{r.checkIn} → {r.checkOut}</td>
+                    <td className="p-1 text-xs text-gray-600 whitespace-nowrap">{r.checkIn}</td>
+                    <td className="p-1 text-xs text-gray-600 whitespace-nowrap">{r.checkOut}</td>
                     <td className="p-1 text-right text-xs">
                       ${r.totalGuestPayout.toFixed(2)}
                       {Math.abs(r.totalPayout - r.totalGuestPayout) > 0.01 && (
-                        <span title={`TOTAL PAYOUT=$${r.totalPayout.toFixed(2)}，与 TOTAL GUEST PAYOUT 不一致，请人工核实`} className="ml-1 text-amber-500 cursor-help">⚠️</span>
+                        <span title={`TOTAL PAYOUT=$${r.totalPayout.toFixed(2)}，与 TOTAL GUEST PAYOUT 不一致`} className="ml-1 text-amber-500 cursor-help">⚠️</span>
                       )}
                     </td>
+                    <td className="p-1 text-right text-xs">${r.totalPayout.toFixed(2)}</td>
+                    <td className="p-1 text-right text-xs">${r.channelCommission.toFixed(2)}</td>
+                    <td className="p-1 text-right text-xs">${r.processingFees.toFixed(2)}</td>
+                    <td className="p-1 text-right text-xs">${bookingCharge.toFixed(2)}</td>
                     <td className="p-1 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <input
@@ -1043,8 +1053,6 @@ function GuestyTab() {
                         <span className="text-gray-400 text-xs">%</span>
                       </div>
                     </td>
-                    <td className="p-1 text-right text-xs">${eff.nightFee.toFixed(2)}</td>
-                    <td className="p-1 text-right text-xs text-red-500">-${eff.platformChargeNight.toFixed(2)}</td>
                     <td className="p-1 text-right">
                       <input
                         type="number"
@@ -1056,7 +1064,8 @@ function GuestyTab() {
                       />
                     </td>
                     <td className="p-1 text-right text-xs text-red-500">-${eff.platformChargeCleaning.toFixed(2)}</td>
-                    <td className="p-1 text-right text-xs text-gray-600">${eff.nightFeeNet.toFixed(2)}</td>
+                    <td className="p-1 text-right text-xs text-gray-700">${r.netIncome.toFixed(2)}</td>
+                    <td className="p-1 text-right text-xs text-red-500">-${eff.platformChargeNight.toFixed(2)}</td>
                     <td className="p-1 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <input
@@ -1073,7 +1082,13 @@ function GuestyTab() {
                       </div>
                     </td>
                     <td className="p-1 text-right text-xs text-orange-600">-${eff.managementFee.toFixed(2)}</td>
+                    <td className="p-1 text-center text-xs font-bold">
+                      {r.cleaningFeeTo === "host" ? <span className="text-purple-600">H</span>
+                        : r.cleaningFeeTo === "owner" ? <span className="text-blue-600">O</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="p-1 text-right text-xs font-bold text-green-700">${eff.payable.toFixed(2)}</td>
+                    <td className="p-1 text-xs">{channelLabel(r.confirmationCode)}</td>
                     <td className="p-1 text-right text-xs font-semibold text-blue-700">${bankReceipt.toFixed(2)}</td>
                     <td className="p-1 text-xs text-gray-600 whitespace-nowrap">
                       {autoMatch ? new Date(autoMatch.date).toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
@@ -1112,28 +1127,37 @@ function GuestyTab() {
                   const c = calcManual(mr);
                   return (
                     <tr key={mr.id} className="border-t bg-blue-50">
+                      {/* Listing */}
                       <td className="p-1">
                         <input value={mr.listingCode} onChange={(e) => updateManualRow(mr.id, { listingCode: e.target.value })}
                           placeholder="代码" className="w-16 border rounded px-1 py-1 text-xs" />
                       </td>
-                      <td className="p-1">
-                        <input value={mr.channel} onChange={(e) => updateManualRow(mr.id, { channel: e.target.value })}
-                          placeholder="渠道" className="w-16 border rounded px-1 py-1 text-xs" />
-                      </td>
+                      {/* Creation Date */}
                       <td className="p-1 text-xs text-gray-400">—</td>
+                      {/* Check In */}
                       <td className="p-1">
-                        <div className="flex items-center gap-1 text-xs">
-                          <input type="date" value={mr.checkIn} onChange={(e) => updateManualRow(mr.id, { checkIn: e.target.value })}
-                            className="border rounded px-1 py-1 text-xs w-28" />
-                          <span>→</span>
-                          <input type="date" value={mr.checkOut} onChange={(e) => updateManualRow(mr.id, { checkOut: e.target.value })}
-                            className="border rounded px-1 py-1 text-xs w-28" />
-                        </div>
+                        <input type="date" value={mr.checkIn} onChange={(e) => updateManualRow(mr.id, { checkIn: e.target.value })}
+                          className="border rounded px-1 py-1 text-xs w-28" />
                       </td>
+                      {/* Check Out */}
+                      <td className="p-1">
+                        <input type="date" value={mr.checkOut} onChange={(e) => updateManualRow(mr.id, { checkOut: e.target.value })}
+                          className="border rounded px-1 py-1 text-xs w-28" />
+                      </td>
+                      {/* Total Guest Payout */}
                       <td className="p-1 text-right">
                         <input type="number" min="0" step="1" value={mr.amount} onChange={(e) => updateManualRow(mr.id, { amount: e.target.value })}
                           placeholder="0" className="w-20 border rounded px-1 py-1 text-xs text-right" />
                       </td>
+                      {/* Total Payout */}
+                      <td className="p-1 text-xs text-gray-400 text-right">—</td>
+                      {/* Channel Commission */}
+                      <td className="p-1 text-xs text-gray-400 text-right">—</td>
+                      {/* Processing Fees */}
+                      <td className="p-1 text-xs text-gray-400 text-right">—</td>
+                      {/* Booking Charge */}
+                      <td className="p-1 text-xs text-gray-400 text-right">—</td>
+                      {/* Platform % */}
                       <td className="p-1 text-right">
                         <div className="flex items-center justify-end gap-0.5">
                           <input type="number" min="0" max="100" step="0.01" value={mr.platformPct} onChange={(e) => updateManualRow(mr.id, { platformPct: e.target.value })}
@@ -1141,21 +1165,18 @@ function GuestyTab() {
                           <span className="text-gray-400 text-xs">%</span>
                         </div>
                       </td>
-                      <td className="p-1 text-right text-xs text-gray-600">${c.nightFee.toFixed(2)}</td>
-                      <td className="p-1 text-right text-xs text-red-500">-${c.platNight.toFixed(2)}</td>
+                      {/* Clean Fee */}
                       <td className="p-1 text-right">
-                        <div className="flex items-center justify-end gap-0.5">
-                          <input type="number" min="0" step="1" value={mr.cleaningFee} onChange={(e) => updateManualRow(mr.id, { cleaningFee: e.target.value })}
-                            placeholder="0" className="w-16 border rounded px-1 py-1 text-xs text-right" />
-                          <select value={mr.cleaningFeeTo} onChange={(e) => updateManualRow(mr.id, { cleaningFeeTo: e.target.value as "owner" | "host" })}
-                            className="border rounded px-1 py-1 text-xs ml-1">
-                            <option value="owner">业主</option>
-                            <option value="host">平台</option>
-                          </select>
-                        </div>
+                        <input type="number" min="0" step="1" value={mr.cleaningFee} onChange={(e) => updateManualRow(mr.id, { cleaningFee: e.target.value })}
+                          placeholder="0" className="w-16 border rounded px-1 py-1 text-xs text-right" />
                       </td>
+                      {/* Clean Fee Charge */}
                       <td className="p-1 text-right text-xs text-red-500">-${c.platClean.toFixed(2)}</td>
-                      <td className="p-1 text-right text-xs text-gray-600">${c.nightFeeNet.toFixed(2)}</td>
+                      {/* Net Income */}
+                      <td className="p-1 text-xs text-gray-400 text-right">—</td>
+                      {/* Platform Charge */}
+                      <td className="p-1 text-right text-xs text-red-500">-${c.platNight.toFixed(2)}</td>
+                      {/* Expected Mgmt Rate */}
                       <td className="p-1 text-right">
                         <div className="flex items-center justify-end gap-0.5">
                           <input type="number" min="0" max="100" step="0.5" value={mr.hostMgmtRate} onChange={(e) => updateManualRow(mr.id, { hostMgmtRate: e.target.value })}
@@ -1163,15 +1184,33 @@ function GuestyTab() {
                           <span className="text-gray-400 text-xs">%</span>
                         </div>
                       </td>
+                      {/* Houst Charge */}
                       <td className="p-1 text-right text-xs text-orange-600">-${c.mgmtFee.toFixed(2)}</td>
+                      {/* Cleaning fee(H&O) */}
+                      <td className="p-1 text-center text-xs font-bold">
+                        <select value={mr.cleaningFeeTo} onChange={(e) => updateManualRow(mr.id, { cleaningFeeTo: e.target.value as "owner" | "host" })}
+                          className="border rounded px-1 py-1 text-xs">
+                          <option value="host">H</option>
+                          <option value="owner">O</option>
+                        </select>
+                      </td>
+                      {/* Payable */}
                       <td className="p-1 text-right text-xs font-bold text-green-700">${c.payable.toFixed(2)}</td>
+                      {/* Channel */}
+                      <td className="p-1 text-xs">
+                        <input value={mr.channel} onChange={(e) => updateManualRow(mr.id, { channel: e.target.value })}
+                          placeholder="渠道" className="w-16 border rounded px-1 py-1 text-xs" />
+                      </td>
+                      {/* Bank Receipt */}
+                      <td className="p-1 text-xs text-gray-400 text-right">—</td>
+                      {/* Bank Match Date */}
                       <td className="p-1 text-xs text-gray-400">—</td>
+                      {/* 到账 */}
                       <td className="p-1 text-center"></td>
-                      <td className="p-1 text-xs text-gray-400">—</td>
+                      {/* 操作 */}
                       <td className="p-1 text-center">
                         <button onClick={() => deleteManualRow(mr.id)} className="text-gray-300 hover:text-red-500 text-base">✕</button>
                       </td>
-                      <td className="p-1"></td>
                     </tr>
                   );
                 })}
