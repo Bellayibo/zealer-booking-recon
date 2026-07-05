@@ -46,6 +46,7 @@ export async function POST(request: Request) {
           cleaningFeeAud,
           cleaningFeeTo: listing.cleaningFeeTo,
           managementFeeRate: listing.managementFeeRate,
+          settlement: listing.settlement,
         },
       });
 
