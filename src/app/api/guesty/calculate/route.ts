@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findListingByPropertyName } from "@/config/listings";
 import { parseGuestyCsv } from "@/lib/guesty-csv-parser";
+import { calculateGuestyPayable } from "@/lib/guesty-calculator";
 
 export async function POST(request: Request) {
   try {
@@ -20,68 +21,59 @@ export async function POST(request: Request) {
     const results = parsed.bookings.map((booking) => {
       const listing = findListingByPropertyName(booking.propertyName);
 
-      // ── Core formula (matches the spreadsheet) ──────────────────────────
+      // ── Core formula (see src/lib/guesty-calculator.ts) ─────────────────
       const gross = booking.totalGuestPayout;
       const cleaningFee = booking.totalFees;
-      // Compute platform charge from CSV: (CHANNEL COMMISSION INCL TAX + PROCESSING FEES) × 1.1
-      // Then derive effective rate against total guest payout.
+      // Platform charge from CSV: (CHANNEL COMMISSION INCL TAX + PROCESSING FEES) × 1.1,
+      // then derive effective rate against total guest payout.
       // For direct bookings (no channel commission), platform charge = 0.
       const bookingChargeFromCsv = (booking.channelCommission + booking.processingFees) * 1.1;
       const platformPct = gross > 0 ? bookingChargeFromCsv / gross : 0;
 
-      const nightFee = gross - cleaningFee;
-      const platformChargeNight    = nightFee * platformPct;
-      const platformChargeCleaning = cleaningFee * platformPct;
-      const nightFeeNet   = nightFee * (1 - platformPct);
-      const cleaningFeeNet = cleaningFee * (1 - platformPct);
+      const calc = calculateGuestyPayable({
+        gross,
+        cleaningFee,
+        platformPct,
+        managementFeeRate: listing?.managementFeeRate ?? 0,
+        cleaningFeeTo: listing?.cleaningFeeTo ?? null,
+        settlement: listing?.settlement ?? null,
+      });
 
       if (!listing) {
         return {
           ...booking,
           listingCode: null as string | null,
           cleaningFeeTo: null as "host" | "owner" | null,
+          settlement: null as "cleaning-only" | null,
           expectedRate: null as number | null,
           actualRate: null as number | null,
           rateMatch: false,
           status: "no_config" as const,
-          // calculated
+          // calculated (geometry only; payout left at 0 until the listing is mapped)
           platformPct,
-          nightFee,
-          platformChargeNight,
-          platformChargeCleaning,
-          nightFeeNet,
-          cleaningFeeNet,
+          ...calc,
           managementFee: 0,
           payable: 0,
         };
       }
 
       const expectedRate = listing.managementFeeRate;
-      const managementFee = nightFeeNet * expectedRate;
-      const payable = nightFeeNet - managementFee
-        + (listing.cleaningFeeTo === "owner" ? cleaningFeeNet : 0);
-
       // actualRate = what Guesty CSV's commission implies as a rate of nightFeeNet
-      const actualRate = nightFeeNet > 0 ? booking.commission / nightFeeNet : null;
+      const actualRate = calc.nightFeeNet > 0 ? booking.commission / calc.nightFeeNet : null;
       const rateMatch = actualRate != null && Math.abs(actualRate - expectedRate) < 0.005;
 
       return {
         ...booking,
         listingCode: listing.code,
         cleaningFeeTo: listing.cleaningFeeTo,
+        settlement: listing.settlement ?? null,
         expectedRate,
         actualRate,
         rateMatch,
         status: "ok" as const,
         // calculated
         platformPct,
-        nightFee,
-        platformChargeNight,
-        platformChargeCleaning,
-        nightFeeNet,
-        cleaningFeeNet,
-        managementFee,
-        payable,
+        ...calc,
       };
     });
 

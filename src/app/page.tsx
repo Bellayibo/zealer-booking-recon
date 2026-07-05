@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { calculateGuestyPayable } from "@/lib/guesty-calculator";
 
 // ─── Statement record (persisted to localStorage) ────────────────────────────
 
@@ -161,6 +162,7 @@ interface GuestyResult {
   commission: number;
   ownerRevenue: number;
   cleaningFeeTo: "host" | "owner" | null;
+  settlement?: "cleaning-only" | null;
   // Calculated per formula
   platformPct: number;
   nightFee: number;
@@ -764,16 +766,26 @@ function GuestyTab() {
     const platformPct  = !isNaN(platformPctOverride) ? platformPctOverride : r.platformPct;
     const gross        = r.totalGuestPayout;
 
-    const nightFee              = gross - cleaningFee;
-    const platformChargeNight   = nightFee * platformPct;
-    const platformChargeCleaning = cleaningFee * platformPct;
-    const nightFeeNet           = nightFee * (1 - platformPct);
-    const cleaningFeeNet        = cleaningFee * (1 - platformPct);
-    const managementFee         = nightFeeNet * mgmtRate;
-    const payable               = nightFeeNet - managementFee
-      + (r.cleaningFeeTo === "owner" ? cleaningFeeNet : 0);
+    const { nightFee, platformChargeNight, platformChargeCleaning, nightFeeNet, cleaningFeeNet, managementFee, payable } =
+      calculateGuestyPayable({
+        gross,
+        cleaningFee,
+        platformPct,
+        managementFeeRate: mgmtRate,
+        cleaningFeeTo: r.cleaningFeeTo,
+        settlement: r.settlement ?? null,
+      });
 
     return { cleaningFee, nightFee, platformChargeNight, platformChargeCleaning, nightFeeNet, cleaningFeeNet, managementFee, payable };
+  };
+
+  // Payment (到账) month for a booking: the bank-matched receipt date's month when a
+  // bank flow is loaded, otherwise fall back to the checkout month. Mirrors the
+  // Booking.com tab's pmKey rule.
+  const gPaymentMonth = (r: GuestyResult): string => {
+    const bankReceipt = r.totalGuestPayout - (r.channelCommission + r.processingFees) * 1.1;
+    const match = gBankTransactions.length > 0 ? findBankMatch(bankReceipt, r.checkOut, gBankTransactions) : null;
+    return (match?.date ?? r.checkOut).substring(0, 7);
   };
 
   const handleCalculate = async () => {
@@ -1235,10 +1247,10 @@ function GuestyTab() {
               onChange={(e) => setGStatementMonth(e.target.value)}
               className="border rounded px-3 py-2 text-sm"
             >
-              <option value="">选择 Checkout 月份</option>
+              <option value="">选择到账月份</option>
               {(() => {
                 const months = new Set<string>();
-                results.forEach((r) => { if (r.checkOut) months.add(r.checkOut.substring(0, 7)); });
+                results.forEach((r) => { const m = gPaymentMonth(r); if (m) months.add(m); });
                 manualRows.forEach((mr) => { if (mr.checkOut) months.add(mr.checkOut.substring(0, 7)); });
                 return Array.from(months).sort().map((m) => <option key={m} value={m}>{m}</option>);
               })()}
@@ -1246,17 +1258,17 @@ function GuestyTab() {
             <button
               onClick={() => {
                 if (!gStatementMonth) {
-                  alert("请先选择要生成 Statement 的 Checkout 月份。");
+                  alert("请先选择要生成 Statement 的到账月份。");
                   return;
                 }
 
-                // Collect all rows matching the selected checkout month
+                // Collect all rows whose payment (到账) month matches the selection
                 const byGroup: Record<string, { checkIn: string; checkOut: string; grossAmount: number; bookingCharge: number; managementFee: number; payable: number }[]> = {};
 
                 results.forEach((r, i) => {
                   if (!r.listingCode) return;
-                  if (!r.checkOut.startsWith(gStatementMonth)) return;
-                  const pmKey = r.checkOut.substring(0, 7);
+                  const pmKey = gPaymentMonth(r);
+                  if (pmKey !== gStatementMonth) return;
                   const groupKey = `${r.listingCode}|${pmKey}`;
                   if (!byGroup[groupKey]) byGroup[groupKey] = [];
                   const eff = getGuestyEffective(r, i);

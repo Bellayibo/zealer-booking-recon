@@ -17,7 +17,7 @@ describe("calculateBookingPayable", () => {
     expect(result.payable).toBeCloseTo(526.34, 1);
   });
 
-  it("563A: host cleaning fee — cleaning not included in payable", () => {
+  it("563A: host cleaning fee — cleaning-fee platform charge deducted from owner", () => {
     const result = calculateBookingPayable({
       grossAmount: 581.18,
       commission: -87.18,
@@ -25,7 +25,20 @@ describe("calculateBookingPayable", () => {
       vat: -9.82,
       config: { cleaningFeeAud: 160, cleaningFeeTo: "host", managementFeeRate: 0.13 },
     });
-    expect(result.payable).toBeCloseTo(298.31, 1);
+    // 298.31 (old) − 29.74 cleaning platform charge = 268.56
+    expect(result.payable).toBeCloseTo(268.56, 1);
+  });
+
+  it("Ultimo: cleaning-only settlement — no mgmt fee, payable = cleaning fee", () => {
+    const result = calculateBookingPayable({
+      grossAmount: 2292.85,
+      commission: -343.93,
+      paymentFee: -43.56,
+      vat: 0,
+      config: { cleaningFeeAud: 285, cleaningFeeTo: "host", managementFeeRate: 0, settlement: "cleaning-only" },
+    });
+    expect(result.managementFee).toBe(0);
+    expect(result.payable).toBe(285);
   });
 
   it("4-122: host cleaning fee, 18% mgmt fee", () => {
@@ -36,7 +49,8 @@ describe("calculateBookingPayable", () => {
       vat: -6.38,
       config: { cleaningFeeAud: 130, cleaningFeeTo: "host", managementFeeRate: 0.18 },
     });
-    expect(result.payable).toBeCloseTo(165.13, 1);
+    // 165.13 (old) − 24.17 cleaning platform charge = 140.96
+    expect(result.payable).toBeCloseTo(140.96, 1);
   });
 
   it("1-24: owner cleaning fee — large booking", () => {
